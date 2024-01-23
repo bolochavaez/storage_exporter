@@ -344,13 +344,12 @@ int delete_disk_snapshot(disk_snapshot **disk_stat_list) {
 int get_exporter_socket(char *hostname) {
   int port_no = 1337;
   int err_code = 0;
-  char *host = "perfbuild1.dc1.ixsystems.net";
   char *msg = "test";
   struct hostent *server;
   struct sockaddr_in serv_addr;
   int socket_fd;
   socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-  server = gethostbyname(host);
+  server = gethostbyname(hostname);
   memset(&serv_addr, 0, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port_no);
