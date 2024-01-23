@@ -143,7 +143,6 @@ arc_snapshot *get_kstat_snapshot() {
   // stats->dmis= get_list_value();
   fclose(arcstat_endpoint);
   return stats;
-  return stats;
 }
 
 disk_snapshot **get_diskstats_snapshot() {
@@ -270,20 +269,52 @@ int print_data(all_data_stats *data) {
   printf("\"misses/sec\": %d, \n", data->arc_misses);
   printf("\"c\" : %d, \n", data->arc_c);
   printf("\"c_min\" : %d, \n", data->arc_c_min);
-  printf("\"c_max\" : %d, \n", data->arc_c_max);
-  printf("}\n");
+  printf("\"c_max\" : %d \n", data->arc_c_max);
+  printf("},\n");
 
   printf("\"disk_stats\":{\n");
   disk_data_stats **disk_index = data->disk_data;
   while (*(disk_index)) {
     printf("\"%s\":{\n", (*disk_index)->device_name);
-    printf("\"kbsec_write\":%d\n", (*disk_index)->reads_sec);
+    printf("\"kbsec_write\":%d,\n", (*disk_index)->reads_sec);
     printf("\"kbsec_read\":%d\n", (*disk_index)->writes_sec);
-    printf("}\n");
+    printf("}");
     disk_index++;
+    if (*(disk_index))
+      printf(",");
+    printf("\n");
   }
   printf("}\n");
   printf("}\n");
+  return 1;
+}
+
+int print_data_string(char *string, all_data_stats *data) {
+
+  string += sprintf(string, "{\n");
+  string += sprintf(string, "\"arc_data\": {\n");
+  string += sprintf(string, "\"hits/sec\" : %d, \n", data->arc_hits);
+  string += sprintf(string, "\"misses/sec\": %d, \n", data->arc_misses);
+  string += sprintf(string, "\"c\" : %d, \n", data->arc_c);
+  string += sprintf(string, "\"c_min\" : %d, \n", data->arc_c_min);
+  string += sprintf(string, "\"c_max\" : %d \n", data->arc_c_max);
+  string += sprintf(string, "},\n");
+
+  string += sprintf(string, "\"disk_stats\":{\n");
+  disk_data_stats **disk_index = data->disk_data;
+  while (*(disk_index)) {
+    string += sprintf(string, "\"%s\":{\n", (*disk_index)->device_name);
+    string +=
+        sprintf(string, "\"kbsec_write\":%d,\n", (*disk_index)->reads_sec);
+    string += sprintf(string, "\"kbsec_read\":%d\n", (*disk_index)->writes_sec);
+    string += sprintf(string, "}");
+    disk_index++;
+    if (*(disk_index))
+      string += sprintf(string, ",");
+    string += sprintf(string, "\n");
+  }
+  string += sprintf(string, "}\n");
+  string += sprintf(string, "}\n");
   return 1;
 }
 
@@ -310,11 +341,52 @@ int delete_disk_snapshot(disk_snapshot **disk_stat_list) {
   free(disk_stat_list);
 }
 
+int get_exporter_socket(char *hostname) {
+  int port_no = 1337;
+  int err_code = 0;
+  char *host = "perfbuild1.dc1.ixsystems.net";
+  char *msg = "test";
+  struct hostent *server;
+  struct sockaddr_in serv_addr;
+  int socket_fd;
+  socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+  server = gethostbyname(host);
+  memset(&serv_addr, 0, sizeof(serv_addr));
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons(port_no);
+  memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
+  err_code = connect(socket_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+  if (err_code < 0) {
+    close(socket_fd);
+    printf("connection failed!!!!!!!!!!!!!");
+    exit(1);
+  }
+
+  return socket_fd;
+}
+
+int send_stats(char *msg, int socket_fd) {
+  int bytes;
+  int sent = 0;
+  int total = strlen(msg);
+  do {
+    bytes = write(socket_fd, msg + sent, total - sent);
+    if (bytes == 0)
+      break;
+    sent += bytes;
+
+  } while (sent < total);
+  return 1;
+}
+
 int main() {
+  int socket_fd = get_exporter_socket("perfbuild1.dc1.ixsystems.net");
   all_data_stats *data_buffer;
   arc_snapshot *arcstat_prev;
   arc_snapshot *arcstat_curr;
 
+  // set aside  a 1 MB message size.
+  char msg_buffer[1000000] = {0};
   disk_snapshot **disk_info_prev;
   disk_snapshot **disk_info_curr;
 
@@ -324,7 +396,8 @@ int main() {
   sleep(1);
   disk_info_curr = get_diskstats_snapshot();
   arcstat_curr = get_kstat_snapshot();
-  for (int i = 0; i < 10; i++) {
+
+  for (int i = 0; i < 1; i++) {
     delete_arc_stats(arcstat_prev);
     delete_disk_snapshot(disk_info_prev);
     disk_info_prev = disk_info_curr;
@@ -334,8 +407,11 @@ int main() {
     arcstat_curr = get_kstat_snapshot();
     data_buffer =
         calculate(arcstat_prev, arcstat_curr, disk_info_prev, disk_info_curr);
-    print_data(data_buffer);
+    print_data_string(msg_buffer, data_buffer);
     delete_data_buffer(data_buffer);
+
+    send_stats(msg_buffer, socket_fd);
+    close(socket_fd);
   }
   return 1;
 }
