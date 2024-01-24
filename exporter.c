@@ -116,8 +116,20 @@ arc_snapshot *get_kstat_snapshot() {
   int value;
   char property[100] = {0};
   arc_snapshot *stats = (arc_snapshot *)malloc(sizeof(arc_snapshot));
+
+  if (stats == NULL){
+    perror("couldnt allocate memory: ");
+    exit(1);
+  }
+
   arc_value *values[150] = {NULL};
   FILE *arcstat_endpoint = fopen("/proc/spl/kstat/zfs/arcstats", "r");
+  if (arcstat_endpoint == NULL) {
+      perror("Could not open /proc/spl/kstat/zfs/arcstats arcstat: ");
+      exit(1);
+  }
+
+
   int index = 0;
   // skip thei first two trash lines
   fscanf(arcstat_endpoint, "%*[^\n]\n");
@@ -125,6 +137,11 @@ arc_snapshot *get_kstat_snapshot() {
   while (EOF !=
          fscanf(arcstat_endpoint, "%s %d %d", &property, &type, &value)) {
     values[index] = (arc_value *)malloc(sizeof(arc_value));
+      if (values[index] == NULL){
+        perror("couldnt allocate memory: ");
+      exit(1);
+      }
+    
     values[index]->value = value;
     strcpy(values[index]->name, property);
     index++;
@@ -168,7 +185,18 @@ disk_snapshot **get_diskstats_snapshot() {
   int flush_success;
   int ms_flushing;
   FILE *arcstat_endpoint = fopen("/proc/diskstats", "r");
+  if (arcstat_endpoint == NULL) {
+      perror("Could not open /proc/diskstats: ");
+      exit(1);
+  }
+
+
   disk_snapshot **disk_stat_list = malloc(sizeof(disk_snapshot *));
+  if (disk_stat_list == NULL){
+    perror("couldnt allocate memory: ");
+      exit(1);
+  }
+
   disk_stat_list[0] = NULL;
   int last_index = 0;
   int list_size = 1;
@@ -187,8 +215,19 @@ disk_snapshot **get_diskstats_snapshot() {
                 &flush_success, &ms_flushing)) {
 
     char *device_name_p = malloc(sizeof(char) * (strlen(device_name) + 1));
+  if (device_name_p  == NULL){
+    perror("couldnt allocate memory: ");
+      exit(1);
+  }
+
+
     strcpy(device_name_p, device_name);
     disk_snapshot *disk_stat_collection = malloc(sizeof(disk_snapshot));
+  if (disk_stat_collection == NULL){
+    perror("couldnt allocate memory: ");
+      exit(1);
+  }
+
     disk_stat_collection->major_number = major_number;
     disk_stat_collection->minor_number = minor_number;
     disk_stat_collection->device_name = device_name_p;
@@ -229,6 +268,12 @@ all_data_stats *calculate(arc_snapshot *prev, arc_snapshot *curr,
   char msgbuf[100];
   disk_data_stats **all_disk_stats =
       (disk_data_stats **)malloc(sizeof(disk_data_stats *));
+  if (all_disk_stats == NULL){
+    perror("couldnt allocate memory: ");
+    exit(1);
+  }
+
+
   // disk_data_stats[0] = NULL;
   int list_size = 1;
   int last_list_index = 0;
@@ -237,6 +282,10 @@ all_data_stats *calculate(arc_snapshot *prev, arc_snapshot *curr,
 
   all_data_stats *data;
   data = (all_data_stats *)malloc(sizeof(all_data_stats));
+  if (data == NULL){
+    perror("couldnt allocate memory: ");
+    exit(1);
+  }
 
   while (*disk_prev) {
     if (!regexec(&regex, (*disk_prev)->device_name, 0, NULL, 0)) {
@@ -247,6 +296,13 @@ all_data_stats *calculate(arc_snapshot *prev, arc_snapshot *curr,
       all_disk_stats[last_list_index] = NULL;
       all_disk_stats[last_list_index - 1] =
           (disk_data_stats *)malloc(sizeof(disk_data_stats));
+
+  if (all_disk_stats[last_list_index - 1] == NULL){
+    perror("couldnt allocate memory: ");
+    exit(1);
+  }
+
+
       strcpy(all_disk_stats[last_list_index - 1]->device_name,
              (*disk_prev)->device_name);
       all_disk_stats[last_list_index - 1]->writes_sec =
@@ -359,7 +415,7 @@ int get_exporter_socket(char *hostname) {
   if (err_code < 0) {
     close(socket_fd);
     printf("connection failed!!!!!!!!!!!!!\n");
-    printf("more specifically: %s \n", strerror(errno));
+    perror("more specifically: ");
     exit(1);
   }
 
