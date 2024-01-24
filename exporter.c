@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 
 typedef struct {
   char name[100];
@@ -357,7 +358,8 @@ int get_exporter_socket(char *hostname) {
   err_code = connect(socket_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
   if (err_code < 0) {
     close(socket_fd);
-    printf("connection failed!!!!!!!!!!!!!");
+    printf("connection failed!!!!!!!!!!!!!\n");
+    printf("more specifically: %s \n", strerror(errno));
     exit(1);
   }
 
