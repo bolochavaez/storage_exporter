@@ -407,6 +407,14 @@ int get_exporter_socket(char *hostname) {
   int socket_fd;
   socket_fd = socket(AF_INET, SOCK_STREAM, 0);
   server = gethostbyname(hostname);
+  if (server == NULL){
+    close(socket_fd);
+    printf("Could not resolve host: \n");
+    herror("error: ");
+    
+    exit(1);
+
+  }
   memset(&serv_addr, 0, sizeof(serv_addr));
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_port = htons(port_no);
