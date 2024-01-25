@@ -444,8 +444,13 @@ int send_stats(char *msg, int socket_fd) {
   return 1;
 }
 
-int main() {
-  int socket_fd = get_exporter_socket("perfbuild1.dc1.ixsystems.net");
+int main(int argc, char *argv[]) {
+  if (argc < 2){
+  printf("you need to supply a destination");
+  exit(1);
+  }
+
+  int socket_fd = get_exporter_socket(argv[1]);
   all_data_stats *data_buffer;
   arc_snapshot *arcstat_prev;
   arc_snapshot *arcstat_curr;
